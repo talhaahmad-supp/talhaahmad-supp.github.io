@@ -57,7 +57,7 @@
 
   <script>
     // Lightweight Treasure Data tracking wrapper (tdTrack)
-    // - If Treasure Data's JS SDK (td) is present and initialized, this will call td.track or the appropriate method.
+    // - If Treasure Data's JS SDK (td) is present and initialized, this will call td.trackEvent to send custom events to Treasure Data.
     // - Otherwise events are queued in window.__td_event_queue and logged to the on-page log for testing.
 
     (function () {
@@ -70,13 +70,15 @@
 
       window.__td_event_queue = window.__td_event_queue || [];
 
+      // Use this table for all custom events
+      var TD_EVENT_TABLE = 'pageviews_talha';
+
       function sendEvent(name, properties) {
         var payload = { event: name, properties: properties || {}, timestamp: new Date().toISOString() };
-        // Prefer 'td.track' (if using td SDK), otherwise 'Treasure' (trackEvent)
         try {
-          if (window.td && typeof window.td.track === 'function') {
-            window.td.track(name, properties);
-            appendLog('Sent to td.track: ' + JSON.stringify(payload));
+          if (window.td && typeof window.td.trackEvent === 'function') {
+            window.td.trackEvent(TD_EVENT_TABLE, name, properties);
+            appendLog('Sent to td.trackEvent: ' + JSON.stringify(payload));
             return;
           }
           if (window.Treasure && typeof window.Treasure === 'function') {
@@ -84,7 +86,7 @@
             try {
               var client = window.Treasure.clients && window.Treasure.clients[0];
               if (client && typeof client.trackEvent === 'function') {
-                client.trackEvent(name, properties);
+                client.trackEvent(TD_EVENT_TABLE, name, properties);
                 appendLog('Sent to Treasure.trackEvent: ' + JSON.stringify(payload));
                 return;
               }
@@ -103,8 +105,8 @@
       window.tdTrack = {
         track: sendEvent,
         flushQueue: function () {
-          if (window.td && typeof window.td.track === 'function' && window.__td_event_queue.length) {
-            window.__td_event_queue.forEach(function (p) { try { window.td.track(p.event, p.properties); } catch(e){ console.error(e); } });
+          if (window.td && typeof window.td.trackEvent === 'function' && window.__td_event_queue.length) {
+            window.__td_event_queue.forEach(function (p) { try { window.td.trackEvent(TD_EVENT_TABLE, p.event, p.properties); } catch(e){ console.error(e); } });
             appendLog('Flushed ' + window.__td_event_queue.length + ' events to Treasure Data');
             window.__td_event_queue = [];
           } else {
