@@ -12,6 +12,23 @@
     .card { border: 1px solid #eee; padding: 16px; border-radius: 8px; margin-top: 18px; max-width: 760px; }
     .log { font-family: monospace; font-size: 13px; background: #0f1724; color: #d1fae5; padding: 12px; border-radius: 6px; margin-top: 12px; max-height: 200px; overflow: auto; }
   </style>
+  <!-- Treasure Data -->
+  <script type="text/javascript">
+  !function(t,e){if(void 0===e[t]){e[t]=function(){e[t].clients.push(this),this._init=[Array.prototype.slice.call(arguments)]},e[t].clients=[];for(var r=function(t){return function(){return this["_"+t]=this["_"+t]||[],this["_"+t].push(Array.prototype.slice.call(arguments)),this}},s=["addRecord","blockEvents","fetchServerCookie","fetchGlobalID","fetchUserSegments","resetUUID","ready","setSignedMode","setAnonymousMode","set","trackEvent","trackPageview","trackClicks","unblockEvents"],n=0;n<s.length;n++){var c=s[n];e[t].prototype[c]=r(c)}var o=document.createElement("script");o.type="text/javascript",o.async=!0,o.src=("https:"===document.location.protocol?"https:":"http:")+"//cdn.treasuredata.com/sdk/2.5/td.min.js";var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)}}("Treasure",this);
+  </script>
+  <!-- Configure your Treasure Data instance: replace the placeholders with your write-only API key, database, and table -->
+  <script type="text/javascript">
+    // Configure an instance for your database
+    var td = new Treasure({
+      host: 'in.treasuredata.com',
+      writeKey: '10452/6ee0daf05ccba33e5710e3adad5b20a8714fc67a',
+      database: 'talha_sdk_test'
+    });
+    // Enable cross-domain tracking
+    td.set('$global', 'td_global_id', 'td_global_id');
+    // Track pageview information to 'pageviews' table
+    td.trackPageview('pageviews_talha');
+  </script>
 </head>
 <body>
   <h1>Hello World!</h1>
@@ -55,16 +72,26 @@
 
       function sendEvent(name, properties) {
         var payload = { event: name, properties: properties || {}, timestamp: new Date().toISOString() };
-        // If Treasure Data's global 'td' exists and has a 'track' function, call it.
+        // Prefer 'td.track' (if using td SDK), otherwise 'Treasure' (trackEvent)
         try {
           if (window.td && typeof window.td.track === 'function') {
-            // Example: td.track(eventName, properties)
             window.td.track(name, properties);
-            appendLog('Sent to Treasure Data: ' + JSON.stringify(payload));
+            appendLog('Sent to td.track: ' + JSON.stringify(payload));
             return;
           }
+          if (window.Treasure && typeof window.Treasure === 'function') {
+            // The Treasure global is a constructor; clients are instances. Use the first client to send trackEvent if possible.
+            try {
+              var client = window.Treasure.clients && window.Treasure.clients[0];
+              if (client && typeof client.trackEvent === 'function') {
+                client.trackEvent(name, properties);
+                appendLog('Sent to Treasure.trackEvent: ' + JSON.stringify(payload));
+                return;
+              }
+            } catch (e) { console.error('Treasure client trackEvent failed', e); }
+          }
         } catch (e) {
-          console.error('td.track call failed', e);
+          console.error('SDK call failed', e);
         }
 
         // Fallback: queue and log
