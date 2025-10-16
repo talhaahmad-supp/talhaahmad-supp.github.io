@@ -2,9 +2,145 @@
 <html>
 <head>
   <title>My GitHub Page</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; padding: 24px; }
+    .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    button, .link-like { padding: 10px 14px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+    button.primary { background: #0366d6; color: #fff; border-color: #0366d6; }
+    .link-like { background: none; border: none; color: #0366d6; text-decoration: underline; }
+    .card { border: 1px solid #eee; padding: 16px; border-radius: 8px; margin-top: 18px; max-width: 760px; }
+    .log { font-family: monospace; font-size: 13px; background: #0f1724; color: #d1fae5; padding: 12px; border-radius: 6px; margin-top: 12px; max-height: 200px; overflow: auto; }
+  </style>
 </head>
 <body>
   <h1>Hello World!</h1>
   <p>This is my first GitHub Page.</p>
+  <div class="card">
+    <h2>Sample interactions</h2>
+    <p>Use these controls to generate tracked events. Events are sent to Treasure Data when its JS SDK is loaded and initialized; otherwise they are queued and shown below.</p>
+    <div class="controls">
+      <button id="buy-btn" class="primary">Buy Now</button>
+      <button id="add-cart-btn">Add to Cart</button>
+      <button id="subscribe-btn">Subscribe</button>
+      <button id="error-btn">Trigger Error</button>
+      <button id="multi-btn">Multiple Clicks</button>
+      <button id="custom-btn">Custom Event</button>
+      <button id="link-like" class="link-like">Open Promo</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <label for="user-id">User ID:</label>
+      <input id="user-id" placeholder="user-123" style="padding:6px;border-radius:6px;border:1px solid #ccc;margin-left:8px" />
+      <button id="set-user">Set</button>
+    </div>
+
+    <div class="log" id="event-log">Event log will appear here...</div>
+  </div>
+
+  <script>
+    // Lightweight Treasure Data tracking wrapper (tdTrack)
+    // - If Treasure Data's JS SDK (td) is present and initialized, this will call td.track or the appropriate method.
+    // - Otherwise events are queued in window.__td_event_queue and logged to the on-page log for testing.
+
+    (function () {
+      function appendLog(text) {
+        var el = document.getElementById('event-log');
+        var msg = '[' + new Date().toISOString() + '] ' + text;
+        if (!el.dataset.first) { el.textContent = msg; el.dataset.first = '1'; }
+        else { el.textContent = msg + '\n' + el.textContent; }
+      }
+
+      window.__td_event_queue = window.__td_event_queue || [];
+
+      function sendEvent(name, properties) {
+        var payload = { event: name, properties: properties || {}, timestamp: new Date().toISOString() };
+        // If Treasure Data's global 'td' exists and has a 'track' function, call it.
+        try {
+          if (window.td && typeof window.td.track === 'function') {
+            // Example: td.track(eventName, properties)
+            window.td.track(name, properties);
+            appendLog('Sent to Treasure Data: ' + JSON.stringify(payload));
+            return;
+          }
+        } catch (e) {
+          console.error('td.track call failed', e);
+        }
+
+        // Fallback: queue and log
+        window.__td_event_queue.push(payload);
+        appendLog('Queued event: ' + JSON.stringify(payload));
+      }
+
+      // Expose a small API for the page
+      window.tdTrack = {
+        track: sendEvent,
+        flushQueue: function () {
+          if (window.td && typeof window.td.track === 'function' && window.__td_event_queue.length) {
+            window.__td_event_queue.forEach(function (p) { try { window.td.track(p.event, p.properties); } catch(e){ console.error(e); } });
+            appendLog('Flushed ' + window.__td_event_queue.length + ' events to Treasure Data');
+            window.__td_event_queue = [];
+          } else {
+            appendLog('No SDK to flush or queue empty');
+          }
+        },
+        getQueue: function () { return window.__td_event_queue.slice(); }
+      };
+
+      // Wire up UI
+      document.getElementById('buy-btn').addEventListener('click', function () {
+        var user = document.getElementById('user-id').value || 'anonymous';
+        tdTrack.track('purchase', { item: 'widget', price: 19.99, user: user });
+      });
+
+      document.getElementById('add-cart-btn').addEventListener('click', function () {
+        tdTrack.track('add_to_cart', { item: 'widget', qty: 1 });
+      });
+
+      document.getElementById('subscribe-btn').addEventListener('click', function () {
+        tdTrack.track('subscribe', { plan: 'monthly' });
+      });
+
+      document.getElementById('error-btn').addEventListener('click', function () {
+        try { throw new Error('Test error from UI'); } catch (e) { tdTrack.track('javascript_error', { message: e.message, stack: e.stack }); }
+      });
+
+      var multiBtn = document.getElementById('multi-btn');
+      var counter = 0;
+      multiBtn.addEventListener('click', function () {
+        counter += 1;
+        tdTrack.track('multi_click', { count: counter });
+      });
+
+      document.getElementById('custom-btn').addEventListener('click', function () {
+        var name = prompt('Custom event name', 'my_event');
+        if (name) tdTrack.track(name, { note: 'created via custom event button' });
+      });
+
+      document.getElementById('link-like').addEventListener('click', function (e) {
+        e.preventDefault();
+        tdTrack.track('open_promo', { source: 'link-like' });
+        appendLog('Pretend opening promo page...');
+      });
+
+      document.getElementById('set-user').addEventListener('click', function () {
+        var v = document.getElementById('user-id').value || 'anonymous';
+        // If td has a setUser or identify function, call it; otherwise just track a identify event
+        try {
+          if (window.td && typeof window.td.identify === 'function') {
+            window.td.identify(v);
+            appendLog('Called td.identify(' + v + ')');
+          } else {
+            tdTrack.track('identify', { user_id: v });
+          }
+        } catch (e) { console.error(e); tdTrack.track('identify', { user_id: v }); }
+      });
+
+  // Helpful note for developers (doesn't include the real SDK).
+  // To use Treasure Data's JS SDK, include the SDK script tag and initialize it before interacting with this page.
+  // For example: add the SDK script to your page and call td.init('YOUR_API_KEY') during startup.
+
+    })();
+  </script>
 </body>
 </html>
