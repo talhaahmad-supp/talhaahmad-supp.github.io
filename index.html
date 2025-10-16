@@ -27,7 +27,7 @@
     // Enable cross-domain tracking
     td.set('$global', 'td_global_id', 'td_global_id');
     // Track pageview information to 'pageviews' table
-    td.trackPageview('pageviews_talha_renamed');
+    td.trackPageview('pageviews_talha_renamed_test');
   </script>
 </head>
 <body>
@@ -71,7 +71,7 @@
       window.__td_event_queue = window.__td_event_queue || [];
 
       // Use this table for all custom events
-      var TD_EVENT_TABLE = 'pageviews_talha_renamed';
+      var TD_EVENT_TABLE = 'pageviews_talha_renamed_test';
 
       function sendEvent(name, properties) {
         var payload = { event: name, properties: properties || {}, timestamp: new Date().toISOString() };
